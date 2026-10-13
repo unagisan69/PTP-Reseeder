@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ptp-reseeder"
+version = "0.2.0"
+description = "Safely find and download byte-for-byte PTP reseed matches"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+  "requests>=2.31,<3",
+  "rich>=13.7,<15",
+]
+
+[project.urls]
+Homepage = "https://github.com/unagisan69/PTP-Reseeder"
+Repository = "https://github.com/unagisan69/PTP-Reseeder"
+Issues = "https://github.com/unagisan69/PTP-Reseeder/issues"
+
+[project.scripts]
+ptp-reseeder = "ptp_reseeder.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ptp_reseeder"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
