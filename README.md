@@ -150,7 +150,7 @@ The design was reviewed against the PTP API documentation supplied on October 13
 | --- | --- |
 | Use API authentication headers | Sends `ApiUser` and `ApiKey` headers. |
 | Do not scrape HTML/site pages | Uses only the documented JSON torrent-search endpoint and selected torrent download endpoint. |
-| Do not download torrents to inspect metadata or decide what to snatch | Selects one candidate from the JSON file list before downloading it. Dry runs download no torrents. |
+| Select before downloading | Selects one candidate by exact file path and byte size from the JSON file list before downloading it. Staff confirmed that the resulting `.torrent` download is acceptable and counts toward the separate four-hour limit. Dry runs download no torrents. |
 | Avoid excessive API traffic | Waits 30 seconds between API requests and caps this program at 120 API requests per rolling hour. PTP staff explicitly confirmed that 30-second pacing is acceptable. |
 | Respect the separate `.torrent` policy | Limits selected torrent downloads to 280 per rolling four hours with at least 52 seconds between downloads, below the staff-confirmed maximum of 300 per four hours. |
 | Limits span runs/processes | Coordinates request history through a locked local state file shared by simultaneous instances. |
@@ -163,7 +163,7 @@ The design was reviewed against the PTP API documentation supplied on October 13
 
 PTP staff confirmed that API requests are limited to 150 per hour and `.torrent` downloads are governed separately at 300 per four-hour period. This program deliberately stays below both limits. Its counters only cover this program: Prowlarr, Radarr, browser activity, and other tools using the same account may consume the same PTP allowances. Pause competing automation while using this program or reduce usage further.
 
-Staff also confirmed that filename searching through any permitted API method and seven-day response caching are acceptable. One policy interpretation remains open: the script selects a torrent from the API file list before downloading it, then uses the downloaded torrent's hashes solely as a final safety check. The torrent is not downloaded to browse metadata or compare candidates. Users should review current staff guidance before relying on that distinction.
+Staff also confirmed that filename searching through any permitted API method and seven-day response caching are acceptable. When the API file list matches the local data exactly by path and byte size, staff confirmed that downloading the selected `.torrent` is acceptable; that download still counts toward the four-hour `.torrent` limit. The script then uses its piece hashes as a final byte-for-byte safety check and does not download alternative candidates after a verification failure.
 
 ## Cache and sensitive data
 
