@@ -144,14 +144,15 @@ A byte-identical movie with a different name or directory layout is rejected bec
 
 ## PTP-rule-conscious design
 
-The design was reviewed against the PTP API documentation supplied on October 13, 2026. Rules can change, and this section is not a guarantee of compliance.
+The design was reviewed against the PTP API documentation supplied on October 13, 2026, and direct staff clarification received on October 14, 2026. Rules can change, and this section is not a guarantee of compliance.
 
 | PTP concern | Program behavior |
 | --- | --- |
 | Use API authentication headers | Sends `ApiUser` and `ApiKey` headers. |
 | Do not scrape HTML/site pages | Uses only the documented JSON torrent-search endpoint and selected torrent download endpoint. |
 | Do not download torrents to inspect metadata or decide what to snatch | Selects one candidate from the JSON file list before downloading it. Dry runs download no torrents. |
-| Avoid excessive traffic | Waits 30 seconds between network requests and caps this program at 120 requests per rolling hour. |
+| Avoid excessive API traffic | Waits 30 seconds between API requests and caps this program at 120 API requests per rolling hour. PTP staff explicitly confirmed that 30-second pacing is acceptable. |
+| Respect the separate `.torrent` policy | Limits selected torrent downloads to 280 per rolling four hours with at least 52 seconds between downloads, below the staff-confirmed maximum of 300 per four hours. |
 | Limits span runs/processes | Coordinates request history through a locked local state file shared by simultaneous instances. |
 | Handle HTTP 429 | Stops, persists at least a one-hour back-off, and honors a longer numeric `Retry-After`. |
 | Handle HTTP 400/5xx | Stops and persists a five-minute back-off. |
@@ -160,7 +161,9 @@ The design was reviewed against the PTP API documentation supplied on October 13
 | Avoid mass scraping | Defaults to 10 entries and requires an explicit staff-approval assertion above 25. |
 | Protect credentials and personalized torrents | Uses environment variables and attempts to store cached API data and torrents with user-only permissions. |
 
-The request ceiling only covers this program. Prowlarr, Radarr, browser activity, and other tools using the same account may consume the same PTP quota. Pause competing automation while using this program or reduce usage further.
+PTP staff confirmed that API requests are limited to 150 per hour and `.torrent` downloads are governed separately at 300 per four-hour period. This program deliberately stays below both limits. Its counters only cover this program: Prowlarr, Radarr, browser activity, and other tools using the same account may consume the same PTP allowances. Pause competing automation while using this program or reduce usage further.
+
+Staff also confirmed that filename searching through any permitted API method and seven-day response caching are acceptable. One policy interpretation remains open: the script selects a torrent from the API file list before downloading it, then uses the downloaded torrent's hashes solely as a final safety check. The torrent is not downloaded to browse metadata or compare candidates. Users should review current staff guidance before relying on that distinction.
 
 ## Cache and sensitive data
 

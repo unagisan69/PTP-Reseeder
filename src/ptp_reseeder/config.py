@@ -14,6 +14,11 @@ class Settings:
     # 150/hour hard ceiling, while also satisfying the 1 request/2 seconds rule.
     request_delay: float = 30.0
     hourly_budget: int = 120
+    # Staff separately permits at most 300 .torrent downloads per four-hour
+    # window. Keep a margin and avoid bursts even though this is not API use.
+    torrent_download_delay: float = 52.0
+    torrent_download_budget: int = 280
+    torrent_download_window: int = 4 * 60 * 60
 
     @classmethod
     def from_environment(cls) -> "Settings":

@@ -128,8 +128,10 @@ class PTPClient:
             pass
         temporary.replace(path)
 
-    def _get(self, endpoint: str, **kwargs: Any) -> requests.Response:
-        self._reserve_request()
+    def _get(
+        self, endpoint: str, *, request_kind: str = "api", **kwargs: Any
+    ) -> requests.Response:
+        self._reserve_request(request_kind)
         try:
             response = self.session.get(
                 self.settings.base_url.rstrip("/") + "/" + endpoint.lstrip("/"),
@@ -172,8 +174,10 @@ class PTPClient:
         state["blocked_until"] = time.time() + seconds
         self._atomic_write(self._rate_file, json.dumps(state).encode("utf-8"))
 
-    def _reserve_request(self) -> None:
-        """Coordinate pacing and the hourly budget across local processes."""
+    def _reserve_request(self, request_kind: str) -> None:
+        """Coordinate API and torrent-download budgets across local processes."""
+        if request_kind not in {"api", "torrent"}:
+            raise ValueError(f"unknown request kind: {request_kind}")
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         try:
             self.cache_dir.chmod(0o700)
@@ -198,25 +202,50 @@ class PTPClient:
                     raise PTPError(
                         f"PTP back-off is active for another {remaining} seconds"
                     )
+                legacy = state.pop("requests", None)
+                if legacy is not None:
+                    state.setdefault("api_requests", legacy)
+                    state.setdefault("torrent_downloads", legacy)
+                history_key = (
+                    "api_requests" if request_kind == "api" else "torrent_downloads"
+                )
+                raw_history = state.get(history_key, [])
+                window = (
+                    3600
+                    if request_kind == "api"
+                    else self.settings.torrent_download_window
+                )
+                delay = (
+                    self.settings.request_delay
+                    if request_kind == "api"
+                    else self.settings.torrent_download_delay
+                )
+                budget = (
+                    self.settings.hourly_budget
+                    if request_kind == "api"
+                    else self.settings.torrent_download_budget
+                )
                 history = [
                     float(stamp)
-                    for stamp in state.get("requests", [])
-                    if now - float(stamp) < 3600
+                    for stamp in raw_history
+                    if now - float(stamp) < window
                 ]
                 waits = [0.0]
                 if history:
-                    waits.append(self.settings.request_delay - (now - history[-1]))
-                if len(history) >= self.settings.hourly_budget:
-                    waits.append(3600 - (now - history[-self.settings.hourly_budget]))
+                    waits.append(delay - (now - history[-1]))
+                if len(history) >= budget:
+                    waits.append(window - (now - history[-budget]))
                 wait = max(waits)
                 if wait <= 0:
                     history.append(now)
+                    state[history_key] = history
                     self._atomic_write(
                         self._rate_file,
-                        json.dumps({"requests": history}).encode("utf-8"),
+                        json.dumps(state).encode("utf-8"),
                     )
                     return
-                self.notice(f"PTP-safe pacing: waiting {int(wait) + 1}s")
+                label = "API" if request_kind == "api" else ".torrent download"
+                self.notice(f"PTP-safe {label} pacing: waiting {int(wait) + 1}s")
                 time.sleep(wait)
 
     def search_filename(self, filename: str) -> list[Candidate]:
@@ -260,7 +289,9 @@ class PTPClient:
         if payload_cache.is_file() and name_cache.is_file():
             return payload_cache.read_bytes(), name_cache.read_text(encoding="utf-8")
         response = self._get(
-            "torrents.php", params={"action": "download", "id": torrent_id}
+            "torrents.php",
+            request_kind="torrent",
+            params={"action": "download", "id": torrent_id},
         )
         disposition = response.headers.get("Content-Disposition", "")
         match = re.search(r'filename="?([^";]+)', disposition, re.IGNORECASE)

@@ -66,9 +66,10 @@ def run(argv: list[str] | None = None) -> int:
     hours, remainder = divmod(int(minimum_seconds), 3600)
     minutes = remainder // 60
     console.print(
-        f"[dim]PTP-safe pacing: one network request every {settings.request_delay:g}s"
+        f"[dim]PTP-safe pacing: one API request every {settings.request_delay:g}s"
         f" • minimum uncached scan time {hours}h {minutes:02d}m"
-        " (candidate downloads add time) • interrupted work is cached[/]"
+        f" • selected torrent downloads use a separate {settings.torrent_download_budget}/4h budget"
+        " • interrupted work is cached[/]"
     )
     client = PTPClient(
         settings,
